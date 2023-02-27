@@ -1,0 +1,1 @@
+{"appliances": ["dish_washer"], "accuracy": [0.8660416666666667], "precision": [0.1054921152800435], "recall": [0.40585774058577406], "f1_score": [0.16745791972378074], "relative_error": [0.1489460035976622], "absolute_error": [61.40816382853193], "tot_appl_wh": [842.3344371888888], "predicted_percentage": [0.8090466382120362]}
