@@ -17,6 +17,9 @@ def train(args, export_root=None, resume=True):
     elif args.dataset_code == 'uk_dale':
         args.house_indicies = [1, 3, 4, 5]
         dataset = UK_DALE_Dataset(args)
+    elif args.dataset_code == 'refit':
+        args.house_indicies = [1, 3, 4, 5]
+        dataset = REFIT_Dataset(args)
 
     x_mean, x_std = dataset.get_mean_std()
     stats = (x_mean, x_std)
@@ -66,7 +69,7 @@ def fix_random_seed_as(random_seed):
     np.random.seed(random_seed)
     
 
-torch.set_default_tensor_type(torch.DoubleTensor)
+torch.set_default_tensor_type(torch.FloatTensor)
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=12345)
 parser.add_argument('--dataset_code', type=str,
@@ -102,6 +105,7 @@ parser.add_argument('--decay_step', type=int, default=100)
 parser.add_argument('--gamma', type=float, default=0.1)
 parser.add_argument('--num_epochs', type=int, default=100)
 parser.add_argument('--c0', type=dict, default=None)
+parser.add_argument('--loss', type=str, default='MSE', choices=['MSE', 'DTW'])
 
 args = parser.parse_args()
 

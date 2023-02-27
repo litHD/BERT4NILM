@@ -2,13 +2,24 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-
+from soft_dtw_cuda import SoftDTW
 
 class GELU(nn.Module):
     def forward(self, x):
         return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
 
+class soft_DTW_pooling(nn.Module):
+    def __init__(self, gamma, cost_type):
+        super().__init__()
+        self.softdtw = SoftDTW(use_cuda=True, gamma=gamma, cost_type=cost_type, normalize=False)
+        self.protos = nn.Parameter(torch.zeros(hidden_sizes[2], num_segments), requires_grad=True)
 
+    def forward(self, x):
+        A = self.softdtw.align(self.protos.repeat(x.shape[0], 1, 1), x)
+        A /= A.sum(dim=2, keepdim=True)
+        h = torch.bmm(h, A.transpose(1, 2))
+        return h
+    
 class PositionalEmbedding(nn.Module):
     def __init__(self, max_len, d_model):
         super().__init__()
@@ -129,6 +140,7 @@ class BERT4NILM(nn.Module):
 
         self.conv = nn.Conv1d(in_channels=1, out_channels=self.hidden,
                                kernel_size=5, stride=1, padding=2, padding_mode='replicate')
+
         self.pool = nn.LPPool1d(norm_type=2, kernel_size=2, stride=2)
 
         self.position = PositionalEmbedding(
@@ -160,9 +172,19 @@ class BERT4NILM(nn.Module):
                     p.mul_(std * math.sqrt(2.))
                     p.add_(mean)
 
-    def forward(self, sequence):
-        x_token = self.pool(self.conv(sequence.unsqueeze(1))).permute(0, 2, 1)
-        embedding = x_token + self.position(sequence)
+    def forward(self, sequence, embedded=None, unsqueeze=True):
+        
+        if embedded is not None:
+            to_embedd = embedded
+        else:
+            to_embedd = sequence
+
+        if unsqueeze is True:
+            inn = self.conv(sequence.unsqueeze(1))
+        else:
+            inn = self.conv(sequence)
+        x_token = self.pool(inn).permute(0, 2, 1)
+        embedding = x_token + self.position(to_embedd)
         x = self.dropout(self.layer_norm(embedding))
 
         mask = None

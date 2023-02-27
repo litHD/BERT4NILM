@@ -9,9 +9,9 @@ def get_user_input(args):
     else:
         args.device = 'cpu'
 
-    dataset_code = {'r': 'redd_lf', 'u': 'uk_dale'}
+    dataset_code = {'r': 'redd_lf', 'u': 'uk_dale', 'rr':'refit'}
     args.dataset_code = dataset_code[input(
-        'Input r for REDD, u for UK_DALE: ')]
+        'Input r for REDD, u for UK_DALE, rr for refit:')]
 
     if args.dataset_code == 'redd_lf':
         app_dict = {
@@ -33,8 +33,19 @@ def get_user_input(args):
         }
         args.appliance_names = app_dict[input(
             'Input k, f, w, m or d for target appliance: ')]
-
+    elif args.dataset_code == 'refit':
+        app_dict = {
+            'k': ['kettle'],
+            'f': ['fridge'],
+            'w': ['washing_machine'],
+            'm': ['microwave'],
+            'd': ['dishwasher'],
+        }
+        args.appliance_names = app_dict[input(
+            'Input k, f, w, m or d for target appliance: ')]
+        
     args.num_epochs = int(input('Input training epochs: '))
+
 
 
 def set_template(args):
@@ -118,6 +129,51 @@ def set_template(args):
 
         args.c0 = {
             'kettle': 1.,
+            'fridge': 1e-6,
+            'washing_machine': 0.01,
+            'microwave': 1.,
+            'dishwasher': 1.
+        }
+    
+    elif args.dataset_code == 'refit':
+        args.window_stride = 240
+        args.house_indicies = [1, 2, 3, 4, 5]
+        
+        args.cutoff = {
+            'aggregate': 5000,
+            'hd': 1800,
+            'fridge': 300,
+            'washing_machine': 2000,
+            'microwave': 900,
+            'dishwasher': 2000
+        }
+
+        args.threshold = {
+            'hd': 1500,
+            'fridge': 50,
+            'washing_machine': 20,
+            'microwave': 200,
+            'dishwasher': 10
+        }
+
+        args.min_on = {
+            'hd': 10,
+            'fridge': 10,
+            'washing_machine': 300,
+            'microwave': 2,
+            'dishwasher': 300
+        }
+
+        args.min_off = {
+            'hd': 0,
+            'fridge': 2,
+            'washing_machine': 26,
+            'microwave': 5,
+            'dishwasher': 300
+        }
+
+        args.c0 = {
+            'hd': 1.,
             'fridge': 1e-6,
             'washing_machine': 0.01,
             'microwave': 1.,

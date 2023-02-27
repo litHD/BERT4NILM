@@ -346,3 +346,69 @@ class UK_DALE_Dataset(AbstractDataset):
                 [0] * len(entire_data.columns), self.cutoff, axis=1)
             
         return entire_data.values[:, 0], entire_data.values[:, 1:]
+
+class REFIT_Dataset(AbstractDataset):
+    @classmethod
+    def code(cls):
+        return 'refit'
+
+    @classmethod
+    def _if_data_exists(self):
+        folder = Path(RAW_DATASET_ROOT_FOLDER).joinpath(self.code())
+        first_file = folder.joinpath('data/house2.csv')
+        print(first_file)
+        if first_file.is_file():
+            return True
+        return False
+
+
+    def load_data(self):
+        for appliance in self.appliance_names:
+            assert appliance in ['dishwasher', 'fridge',
+                                 'microwave', 'washing_machine', 'kettle']
+
+
+        if not self._if_data_exists():
+            print('Please download, unzip and move data into',
+                  self._get_folder_path())
+            raise FileNotFoundError
+
+        else:
+            directory = self._get_folder_path()
+
+            for house_idx in self.house_indicies:
+                house_data_loc = directory.joinpath(f'data/house{str(house_idx)}.csv')
+                labelname_loc = directory.joinpath(f'labels/house{str(house_idx)}.txt')
+
+                with open(labelname_loc) as f:
+                    house_labels = f.readlines()
+
+                house_labels = ['Time'] + house_labels[0].lower().strip('\n').split(',')
+
+                if self.appliance_names[0] in house_labels:
+                    house_data = pd.read_csv(house_data_loc)
+                    house_data['Unix'] = pd.to_datetime(house_data['Unix'], unit = 's')
+
+                    house_data         = house_data.drop(labels = ['Time'],axis = 1)
+                    house_data.columns = house_labels
+                    house_data = house_data.set_index('Time')
+                    print(house_data.dtypes)
+                    idx_to_drop = house_data[house_data['issues']==1].index
+                    house_data = house_data.drop(index = idx_to_drop, axis = 0)
+                    house_data = house_data[['aggregate',self.appliance_names[0]]]
+                    house_data = house_data.resample(self.sampling).mean().fillna(method='ffill', limit=30)
+
+                    if house_idx == self.house_indicies[0]:
+                        entire_data = house_data
+                        if len(self.house_indicies) == 1:
+                            entire_data = entire_data.reset_index(drop=True)
+                    else:
+                        entire_data = entire_data.append(house_data, ignore_index=True)
+
+
+            entire_data                  = entire_data.dropna().copy()
+            entire_data                  = entire_data[entire_data['aggregate'] > 0] #remove negative values (possible mistakes)
+            entire_data[entire_data < 5] = 0 #remove very low values
+            entire_data                  = entire_data.clip([0] * len(entire_data.columns), self.cutoff, axis=1) # force values to be between 0 and cutoff
+
+            return entire_data.values[:, 0], entire_data.values[:, 1:]

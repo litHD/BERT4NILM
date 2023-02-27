@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.autograd.gradcheck import zero_gradients
+# from torch.autograd.gradcheck import zero_gradients
 from tqdm import tqdm
 
 import os
@@ -11,12 +11,14 @@ import random
 import numpy as np
 from abc import *
 from pathlib import Path
-
+from soft_dtw_cuda import SoftDTW
 from utils import *
 import matplotlib.pyplot as plt
 
-
-torch.set_default_tensor_type(torch.DoubleTensor)
+torch.backends.cudnn.benchmark = True
+torch.backends.cudnn.best = True
+#os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
+torch.set_default_tensor_type(torch.FloatTensor)
 
 
 class Trainer(metaclass=ABCMeta):
@@ -24,6 +26,7 @@ class Trainer(metaclass=ABCMeta):
         self.args = args
         self.device = args.device
         self.num_epochs = args.num_epochs
+        self.model = model.to(torch.float)
         self.model = model.to(self.device)
         self.export_root = Path(export_root)
 
@@ -54,7 +57,11 @@ class Trainer(metaclass=ABCMeta):
         self.C0 = torch.tensor(args.c0[args.appliance_names[0]]).to(self.device)
         print('C0: {}'.format(self.C0))
         self.kl = nn.KLDivLoss(reduction='batchmean')
-        self.mse = nn.MSELoss()
+        self.loss = args.loss
+        if args.loss == 'MSE':
+            self.first_term_loss = nn.MSELoss()
+        elif args.loss == 'DTW':
+            self.first_term_loss = SoftDTW(use_cuda=True, gamma=0.1)
         self.margin = nn.SoftMarginLoss()
         self.l1_on = nn.L1Loss(reduction='sum')
 
@@ -90,14 +97,13 @@ class Trainer(metaclass=ABCMeta):
             seqs, labels_energy, status = batch
             seqs, labels_energy, status = seqs.to(self.device), labels_energy.to(self.device), status.to(self.device)
             self.optimizer.zero_grad()
-            logits = self.model(seqs)
+            logits = self.model(seqs.float())
             labels = labels_energy / self.cutoff
             logits_energy = self.cutoff_energy(logits * self.cutoff)
             logits_status = self.compute_status(logits_energy)
 
             kl_loss = self.kl(torch.log(F.softmax(logits.squeeze() / 0.1, dim=-1) + 1e-9), F.softmax(labels.squeeze() / 0.1, dim=-1))
-            mse_loss = self.mse(logits.contiguous().view(-1).double(),
-                labels.contiguous().view(-1).double())
+            mse_loss = self.first_term_loss(logits.contiguous().view(-1).double(),labels.contiguous().view(-1).double())
             margin_loss = self.margin((logits_status * 2 - 1).contiguous().view(-1).double(), 
                 (status * 2 - 1).contiguous().view(-1).double())
             total_loss = kl_loss + mse_loss + margin_loss
@@ -120,6 +126,7 @@ class Trainer(metaclass=ABCMeta):
 
         if self.args.enable_lr_schedule:
             self.lr_scheduler.step()
+    torch.cuda.empty_cache()   
 
     def train_bert_one_epoch(self, epoch):
         loss_values = []
@@ -130,20 +137,24 @@ class Trainer(metaclass=ABCMeta):
             seqs, labels_energy, status = seqs.to(self.device), labels_energy.to(self.device), status.to(self.device)
             batch_shape = status.shape
             self.optimizer.zero_grad()
-            logits = self.model(seqs)
+            logits = self.model(seqs.float())
             labels = labels_energy / self.cutoff
             logits_energy = self.cutoff_energy(logits * self.cutoff)
             logits_status = self.compute_status(logits_energy)
             
             mask = (status >= 0)
-            labels_masked = torch.masked_select(labels, mask).view((-1, batch_shape[-1]))
-            logits_masked = torch.masked_select(logits, mask).view((-1, batch_shape[-1]))
-            status_masked = torch.masked_select(status, mask).view((-1, batch_shape[-1]))
-            logits_status_masked = torch.masked_select(logits_status, mask).view((-1, batch_shape[-1]))
+            labels_masked = torch.masked_select(labels, mask).view((1,-1, batch_shape[-1]))
+            logits_masked = torch.masked_select(logits, mask).view((1,-1, batch_shape[-1]))
+            status_masked = torch.masked_select(status, mask).view((1,-1, batch_shape[-1]))
+            logits_status_masked = torch.masked_select(logits_status, mask).view((1,-1, batch_shape[-1]))
+            
+            if self.loss == 'MSE':
+                mse_loss = self.first_term_loss(logits_masked.contiguous().view(-1).double(),labels_masked.contiguous().view(-1).double())
+            if self.loss == 'DTW':
+                mse_loss = self.first_term_loss(logits_masked.double(),labels_masked.double())
 
             kl_loss = self.kl(torch.log(F.softmax(logits_masked.squeeze() / 0.1, dim=-1) + 1e-9), F.softmax(labels_masked.squeeze() / 0.1, dim=-1))
-            mse_loss = self.mse(logits_masked.contiguous().view(-1).double(),
-                labels_masked.contiguous().view(-1).double())
+
             margin_loss = self.margin((logits_status_masked * 2 - 1).contiguous().view(-1).double(), 
                 (status_masked * 2 - 1).contiguous().view(-1).double())
             total_loss = kl_loss + mse_loss + margin_loss
@@ -166,7 +177,7 @@ class Trainer(metaclass=ABCMeta):
 
         if self.args.enable_lr_schedule:
             self.lr_scheduler.step()
-
+        torch.cuda.empty_cache()
     def validate(self):
         self.model.eval()
         loss_values, relative_errors, absolute_errors = [], [], []
@@ -177,7 +188,7 @@ class Trainer(metaclass=ABCMeta):
             for batch_idx, batch in enumerate(tqdm_dataloader):
                 seqs, labels_energy, status = batch
                 seqs, labels_energy, status = seqs.to(self.device), labels_energy.to(self.device), status.to(self.device)
-                logits = self.model(seqs)
+                logits = self.model(seqs.float())
                 labels = labels_energy / self.cutoff
                 logits_energy = self.cutoff_energy(logits * self.cutoff)
                 logits_status = self.compute_status(logits_energy)
@@ -208,6 +219,7 @@ class Trainer(metaclass=ABCMeta):
         return_precision = np.array(precision_values).mean(axis=0)
         return_recall = np.array(recall_values).mean(axis=0)
         return_f1 = np.array(f1_values).mean(axis=0)
+        torch.cuda.empty_cache()
         return return_rel_err, return_abs_err, return_acc, return_precision, return_recall, return_f1
 
     def test(self, test_loader):
@@ -225,7 +237,7 @@ class Trainer(metaclass=ABCMeta):
             for batch_idx, batch in enumerate(tqdm_dataloader):
                 seqs, labels_energy, status = batch
                 seqs, labels_energy, status = seqs.to(self.device), labels_energy.to(self.device), status.to(self.device)
-                logits = self.model(seqs)
+                logits = self.model(seqs.float())
                 labels = labels_energy / self.cutoff
                 logits_energy = self.cutoff_energy(logits * self.cutoff)
                 logits_status = self.compute_status(logits_energy)
@@ -269,7 +281,7 @@ class Trainer(metaclass=ABCMeta):
             return_rel_err = np.array(relative_errors).mean()
         return_rel_err, return_abs_err = relative_absolute_error(e_pred_curve, label_curve)
         return_acc, return_precision, return_recall, return_f1 = acc_precision_recall_f1_score(s_pred_curve, status_curve)
-
+        torch.cuda.empty_cache()
         return return_rel_err, return_abs_err, return_acc, return_precision, return_recall, return_f1
 
     def cutoff_energy(self, data):
