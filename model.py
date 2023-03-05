@@ -2,7 +2,7 @@ import math
 import torch
 from torch import nn
 import torch.nn.functional as F
-from soft_dtw_cuda import SoftDTW
+#from soft_dtw_cuda import SoftDTW
 
 class GELU(nn.Module):
     def forward(self, x):
