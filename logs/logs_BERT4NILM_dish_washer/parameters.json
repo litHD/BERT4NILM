@@ -1,1 +1,0 @@
-{"trained_on": "uk_dale", "tested_on": "synd", "cutoff": 2500, "threshold": 20, "min_on": 10, "window_size": 480, "drop_out": 0.1, "output_size": 1, "stride": 160, "mul": 1}

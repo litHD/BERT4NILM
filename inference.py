@@ -195,7 +195,7 @@ if __name__ =="__main__":
     parser.add_argument('--device', type=str, default='cpu', choices=['cpu', 'cuda'])
     parser.add_argument('--cutoff', type=float)
     parser.add_argument('--treshold', type=float)
-    parser.add_argument('--window_size', type=int)
+    parser.add_argument('--window_size', type=int, default=600)
     parser.add_argument('--stride', type=int, help='window_size/stride need to be odd integer number')
     parser.add_argument('--until', type=int)
     parser.add_argument('--min_on', type=int)
@@ -219,6 +219,7 @@ if __name__ =="__main__":
     energy_res = []
     status_res = []
     x = x[:args.until]
+    print(x.shape)
     for i in tqdm(np.arange(0, x.shape[0],args.stride)):
 
         seqs = padding_seqs(x[i:i+args.window_size], args.window_size)

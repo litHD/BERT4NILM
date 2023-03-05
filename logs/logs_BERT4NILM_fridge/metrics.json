@@ -1,1 +1,0 @@
-{"appliances": ["fridge"], "accuracy": [0.7397222222222222], "precision": [0.6754483063980518], "recall": [0.5720982561410088], "f1_score": [0.6194923857868021], "relative_error": [47327.39613668349], "absolute_error": [13.980837003939142], "tot_appl_wh": [424.7198811724138], "predicted_percentage": [0.7565590585261003]}
