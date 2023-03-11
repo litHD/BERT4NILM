@@ -131,7 +131,7 @@ def log_data_and_images(path,aggregate,pred,labels,f_sampling,appliance,args,sho
         aggregate = np.squeeze(aggregate, axis=-1)
 
     status_l = compute_status(labels,args.treshold,args.min_on)
-    status_p = compute_status(labels,args.treshold,args.min_on)
+    status_p = compute_status(pred,args.treshold,args.min_on)
 
     print(pred.shape)
     print(labels.shape)

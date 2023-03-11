@@ -11,7 +11,7 @@ import random
 import numpy as np
 from abc import *
 from pathlib import Path
-from soft_dtw_cuda import SoftDTW
+
 from utils import *
 import matplotlib.pyplot as plt
 
