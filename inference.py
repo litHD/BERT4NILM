@@ -204,7 +204,8 @@ if __name__ =="__main__":
     args = parser.parse_args()
     
     args.mul = int(((args.window_size/args.stride)-1)/2)
-    
+    args.appliance_names = [0]
+    args.dataset_code = args.trained_on
     set_template(args)
     args.cutoff = args.cutoff[args.appliance]
     args.min_on = args.min_on[args.appliance]

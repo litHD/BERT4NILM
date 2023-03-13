@@ -49,7 +49,8 @@ def get_user_input(args):
 
 
 def set_template(args):
-    args.output_size = len(args.appliance_names)
+    if args.appliance_names is not None:
+        args.output_size = len(args.appliance_names)
     if args.dataset_code == 'redd_lf':
         args.window_stride = 120
         args.house_indicies = [1, 2, 3, 4, 5, 6]

@@ -1,0 +1,1 @@
+{"appliances": "dishwasher", "accuracy": [0.9769], "precision": [0.5981651376146789], "recall": [0.8485163977095262], "f1_score": [0.7016788635385278], "relative_error": [0.7333294035314919], "absolute_error": [13.551994656292598], "tot_appl_wh": [2502.785], "predicted_percentage": [0.5459348735401442]}
