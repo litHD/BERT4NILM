@@ -1,4 +1,5 @@
 from model import BERT4NILM
+from utils import set_template
 import torch
 import numpy as np
 from tqdm import tqdm
@@ -204,6 +205,13 @@ if __name__ =="__main__":
     
     args.mul = int(((args.window_size/args.stride)-1)/2)
     
+    set_template(args)
+    args.cutoff = args.cutoff[args.appliance]
+    args.min_on = args.min_on[args.appliance]
+    args.treshold = args.threshold[args.appliance]
+    args.c0 = 0
+    args.min_off = 0
+    args.house_indicies =0
     model = BERT4NILM(args)
     model.to(args.device)
     model.float()

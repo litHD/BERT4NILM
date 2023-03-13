@@ -91,7 +91,7 @@ def set_template(args):
         }
 
     elif args.dataset_code == 'uk_dale':
-        args.window_stride = 240
+        #args.window_stride = 240
         args.house_indicies = [1, 2, 3, 4, 5]
         
         args.cutoff = {
@@ -136,7 +136,7 @@ def set_template(args):
         }
     
     elif args.dataset_code == 'refit':
-        args.window_stride = 240
+        #args.window_stride = 120
         args.house_indicies = [2, 3, 4, 5, 6, 16]
         
         args.cutoff = {
