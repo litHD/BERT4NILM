@@ -1,0 +1,1 @@
+{"appliances": "washing_machine", "accuracy": [0.9184875], "precision": [0.7248809822099724], "recall": [0.5722480466818317], "f1_score": [0.6395843696457194], "relative_error": [0.12775810439810895], "absolute_error": [48.770788098748525], "tot_appl_wh": [8745.792870370371], "predicted_percentage": [0.7133048102818318]}
