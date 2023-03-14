@@ -15,7 +15,7 @@ def train(args, export_root=None, resume=True):
         args.house_indicies = [2, 3, 4, 5, 6]
         dataset = REDD_LF_Dataset(args)
     elif args.dataset_code == 'uk_dale':
-        args.house_indicies = [1, 3, 4, 5]
+        args.house_indicies = [1,2, 3, 4, 5]
         dataset = UK_DALE_Dataset(args)
     elif args.dataset_code == 'refit':
         args.house_indicies = [1, 3, 4, 5]

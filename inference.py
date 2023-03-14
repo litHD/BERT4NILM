@@ -121,7 +121,7 @@ def Wh_estimate(pred, label, f_sampling):
     
 def log_data_and_images(path,aggregate,pred,labels,f_sampling,appliance,args,show=False):
    
-    path = f"{path}_{appliance}_train_{args.trained_on}_test_{args.tested_on}"
+    path = f"{path}_{appliance}_train_{args.trained_on}_test_{args.tested_on}_{args.house_id}"
     if len(pred.shape) == 1:
         pred = np.expand_dims(pred,-1)
 
@@ -133,7 +133,7 @@ def log_data_and_images(path,aggregate,pred,labels,f_sampling,appliance,args,sho
 
     status_l = compute_status(labels,args.treshold,args.min_on)
     status_p = compute_status(pred,args.treshold,args.min_on)
-
+    pred[pred < args.treshold] = 0
     print(pred.shape)
     print(labels.shape)
     print(aggregate.shape)
@@ -200,27 +200,36 @@ if __name__ =="__main__":
     parser.add_argument('--stride', type=int, help='window_size/stride need to be odd integer number')
     parser.add_argument('--until', type=int)
     parser.add_argument('--min_on', type=int)
-    parser.add_argument('--f_sampling', type=float, default=1/6)
+    parser.add_argument('--f_sampling', type=str, default=1/6)
+    parser.add_argument('--house_id', type=int)
     args = parser.parse_args()
     
+    if args.tested_on == 'refit':
+        args.f_sampling = 1/7
+
     args.mul = int(((args.window_size/args.stride)-1)/2)
+
     args.appliance_names = [0]
+
     args.dataset_code = args.trained_on
+
     set_template(args)
+
     args.cutoff = args.cutoff[args.appliance]
     args.min_on = args.min_on[args.appliance]
     args.treshold = args.threshold[args.appliance]
     args.c0 = 0
     args.min_off = 0
     args.house_indicies =0
+
     model = BERT4NILM(args)
     model.to(args.device)
     model.float()
     model.load_state_dict(torch.load(args.model_path))
     print(model)
     
-    x = np.load(args.main_path)  
-    y = np.load(args.appliance_path)
+    x = np.load(os.path.join(args.main_path, f'house{args.house_id}.npy'))  
+    y = np.load(os.path.join(args.appliance_path, f'house{args.house_id}.npy'))
     mean = np.mean(x)
     std = np.std(x)
     model.eval()
@@ -247,6 +256,6 @@ if __name__ =="__main__":
             energy_res.append(logits_energy[+args.mul*args.stride:-args.mul*args.stride])
 
         energy = np.concatenate(energy_res)
-        
+        energy[energy<10] = 0
 
-    log_data_and_images(f'./logs/logs_BERT4NILM', x,energy[:args.until], y[:args.until], args.f_sampling, args.appliance, args,show=True)
+    log_data_and_images(f'./logs/', x,energy[:args.until], y[:args.until], args.f_sampling, args.appliance, args,show=True)
