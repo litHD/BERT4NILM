@@ -134,9 +134,8 @@ def log_data_and_images(path,aggregate,pred,labels,f_sampling,appliance,args,sho
     status_l = compute_status(labels,args.treshold,args.min_on)
     status_p = compute_status(pred,args.treshold,args.min_on)
     pred[pred < args.treshold] = 0
-    print(pred.shape)
-    print(labels.shape)
-    print(aggregate.shape)
+
+
     assert pred.shape == labels.shape
     assert aggregate.shape[0] == pred.shape[0]
     assert status_l.shape == status_p.shape
@@ -222,6 +221,7 @@ if __name__ =="__main__":
     args.min_off = 0
     args.house_indicies =0
 
+
     model = BERT4NILM(args)
     model.to(args.device)
     model.float()
@@ -230,8 +230,10 @@ if __name__ =="__main__":
     
     x = np.load(os.path.join(args.main_path, f'house{args.house_id}.npy'))  
     y = np.load(os.path.join(args.appliance_path, f'house{args.house_id}.npy'))
+
     mean = np.mean(x)
     std = np.std(x)
+
     model.eval()
 
     energy_res = []
