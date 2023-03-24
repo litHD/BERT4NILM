@@ -8,6 +8,7 @@ class GELU(nn.Module):
     def forward(self, x):
         return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
 
+#tentativo di implementazione di una loss function basata su DTW, ma troppo pesante da elaborare in termine di memoria
 class soft_DTW_pooling(nn.Module):
     def __init__(self, gamma, cost_type):
         super().__init__()

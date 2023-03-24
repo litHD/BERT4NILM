@@ -30,6 +30,7 @@ class Trainer(metaclass=ABCMeta):
         self.model = model.to(self.device)
         self.export_root = Path(export_root)
 
+        #seleziona solo i valori relativi all'elettrodomestico selezionato
         self.cutoff = torch.tensor([args.cutoff[i]
                                     for i in args.appliance_names]).to(self.device)
         self.threshold = torch.tensor(
@@ -62,6 +63,7 @@ class Trainer(metaclass=ABCMeta):
             self.first_term_loss = nn.MSELoss()
         elif args.loss == 'DTW':
             self.first_term_loss = SoftDTW(use_cuda=True, gamma=0.1)
+    
         self.margin = nn.SoftMarginLoss()
         self.l1_on = nn.L1Loss(reduction='sum')
 
@@ -82,7 +84,8 @@ class Trainer(metaclass=ABCMeta):
             val_precision.append(precision.tolist())
             val_recall.append(recall.tolist())
             val_f1.append(f1.tolist())
-
+            
+            #salvo solo il modello migliore che rispetta questa caratteristica di punteggio sul validation set
             if f1.mean() + acc.mean() - rel_err.mean() > best_f1.mean() + best_acc.mean() - best_rel_err.mean():
                 best_f1 = f1
                 best_acc = acc
@@ -99,15 +102,17 @@ class Trainer(metaclass=ABCMeta):
             self.optimizer.zero_grad()
             logits = self.model(seqs.float())
             labels = labels_energy / self.cutoff
-            logits_energy = self.cutoff_energy(logits * self.cutoff)
+            logits_energy = self.cutoff_energy(logits * self.cutoff) #moltiplico per fattore di riconversione da -1 a 1 a  valori reali, per poi filtrare
             logits_status = self.compute_status(logits_energy)
 
+            #calcolo i primi tre termini del loss
             kl_loss = self.kl(torch.log(F.softmax(logits.squeeze() / 0.1, dim=-1) + 1e-9), F.softmax(labels.squeeze() / 0.1, dim=-1))
             mse_loss = self.first_term_loss(logits.contiguous().view(-1).double(),labels.contiguous().view(-1).double())
             margin_loss = self.margin((logits_status * 2 - 1).contiguous().view(-1).double(), 
                 (status * 2 - 1).contiguous().view(-1).double())
             total_loss = kl_loss + mse_loss + margin_loss
             
+            #su finestre in cui non trovo segnale acceso non calcolo questo termine del loss
             on_mask = ((status == 1) + (status != logits_status.reshape(status.shape))) >= 1
             if on_mask.sum() > 0:
                 total_size = torch.tensor(on_mask.shape).prod()
@@ -148,6 +153,7 @@ class Trainer(metaclass=ABCMeta):
             status_masked = torch.masked_select(status, mask).view((1,-1, batch_shape[-1]))
             logits_status_masked = torch.masked_select(logits_status, mask).view((1,-1, batch_shape[-1]))
             
+            #calcolo i primi tre termini del loss
             if self.loss == 'MSE':
                 mse_loss = self.first_term_loss(logits_masked.contiguous().view(-1).double(),labels_masked.contiguous().view(-1).double())
             if self.loss == 'DTW':
@@ -159,6 +165,7 @@ class Trainer(metaclass=ABCMeta):
                 (status_masked * 2 - 1).contiguous().view(-1).double())
             total_loss = kl_loss + mse_loss + margin_loss
             
+            #su finestre in cui non trovo segnale acceso non calcolo questo termine del loss
             on_mask = (status >= 0) * (((status == 1) + (status != logits_status.reshape(status.shape))) >= 1)
             if on_mask.sum() > 0:
                 total_size = torch.tensor(on_mask.shape).prod()
@@ -284,6 +291,7 @@ class Trainer(metaclass=ABCMeta):
         torch.cuda.empty_cache()
         return return_rel_err, return_abs_err, return_acc, return_precision, return_recall, return_f1
 
+#Elimina tutte i valori all'interno di data che risultano essere maggior di cutoff
     def cutoff_energy(self, data):
         columns = data.squeeze().shape[-1]
 
@@ -294,7 +302,7 @@ class Trainer(metaclass=ABCMeta):
         data[data < 5] = 0
         data = torch.min(data, self.cutoff.double())
         return data
-
+#calcola lo stato del segnale passato in input
     def compute_status(self, data):
         data_shape = data.shape
         columns = data.squeeze().shape[-1]
@@ -306,6 +314,7 @@ class Trainer(metaclass=ABCMeta):
         status = (data >= self.threshold) * 1
         return status
 
+#istanzia l'ottimizzatore per il modello corrente
     def _create_optimizer(self):
         args = self.args
         param_optimizer = list(self.model.named_parameters())
@@ -326,6 +335,7 @@ class Trainer(metaclass=ABCMeta):
         else:
             raise ValueError
 
+#funzioni necessarie per salvare e caricare i pesi del modello  
     def _load_best_model(self):
         try:
             self.model.load_state_dict(torch.load(

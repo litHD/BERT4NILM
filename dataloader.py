@@ -6,7 +6,7 @@ import torch.utils.data as data_utils
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
-
+#Genera dataloader da utilizzare  durante il training e il validation 
 class NILMDataloader():
     def __init__(self, args, dataset, bert=False):
         self.args = args
@@ -32,7 +32,7 @@ class NILMDataloader():
             dataset, batch_size=self.batch_size, shuffle=False, pin_memory=True)
         return dataloader
 
-
+#Dataset per fare testing
 class NILMDataset(data_utils.Dataset):
     def __init__(self, x, y, status, window_size=480, stride=30):
         self.x = x
@@ -53,6 +53,9 @@ class NILMDataset(data_utils.Dataset):
         status = self.padding_seqs(self.status[start_index: end_index])
         return torch.tensor(x), torch.tensor(y), torch.tensor(status)
 
+
+#padda a windowsize le finestre che risultano di dimensioni inferiori
+#fondamentale per passare al modello finestre di dimensioni tutte uguali
     def padding_seqs(self, in_array):
         if len(in_array) == self.window_size:
             return in_array
@@ -65,7 +68,7 @@ class NILMDataset(data_utils.Dataset):
         out_array[:length] = in_array
         return out_array
 
-
+#dataset per fare trainer secondo la procedura di allenamento di BERT
 class BERTDataset(data_utils.Dataset):
     def __init__(self, x, y, status, window_size=480, stride=30, mask_prob=0.2):
         self.x = x
@@ -111,6 +114,9 @@ class BERTDataset(data_utils.Dataset):
         
         return torch.tensor(tokens), torch.tensor(labels), torch.tensor(on_offs)
 
+
+#padda a windowsize le finestre che risultano di dimensioni inferiori
+#fondamentale per passare al modello finestre di dimensioni tutte uguali
     def padding_seqs(self, in_array):
         if len(in_array) == self.window_size:
             return in_array

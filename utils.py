@@ -47,7 +47,7 @@ def get_user_input(args):
     args.num_epochs = int(input('Input training epochs: '))
 
 
-
+#setta i parametri fondamentali in base al dataset scelto
 def set_template(args):
     args.output_size = len(args.appliance_names)
     if args.dataset_code == 'redd_lf':
@@ -185,7 +185,7 @@ def set_template(args):
     args.enable_lr_schedule = False
     args.batch_size = 128
 
-
+#calcola le metriche descritte usando lo status predetto e lo status effettivo del Ground truth.  
 def acc_precision_recall_f1_score(pred, status):
     assert pred.shape == status.shape
 
@@ -209,7 +209,7 @@ def acc_precision_recall_f1_score(pred, status):
 
     return np.array(accs), np.array(precisions), np.array(recalls), np.array(f1_scores)
 
-
+#calcola errrore relativo e errore assoluto usando il disaggregato predetto e il disaggregato originale
 def relative_absolute_error(pred, label):
     assert pred.shape == label.shape
 

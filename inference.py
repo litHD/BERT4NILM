@@ -11,6 +11,7 @@ import numpy as np
 import os
 import json
 
+#Elimina tutte i valori all'interno di data che risultano essere maggior di cutoff
 def cutoff_energy(data, cutoff):
 
     data[data < 5] = 0
@@ -19,7 +20,7 @@ def cutoff_energy(data, cutoff):
     data = np.minimum(data,tmp)
     
     return data
-
+#funzione che trova tutti gli intervalli in cui il vettore a non e' nullo
 def find_nonzero_runs(a):
     # Create an array that is 1 where a is nonzero, and pad each end with an extra 0.
     isnonzero = np.concatenate(([[0]], (np.asarray(a) != 0).view(np.int8), [[0]]))
@@ -28,7 +29,7 @@ def find_nonzero_runs(a):
     ranges = np.where(absdiff == 1)[0].reshape(-1, 2)
     return ranges
 
-#Func that fuse together  near intervals that are close n_timesteps=gap
+#funzione che mette a zero tutti gli intervalli pieni di valori che risultano inferiori a gap
 def zeros_interval(data, intervals, gap):
     i=0
 
@@ -36,6 +37,9 @@ def zeros_interval(data, intervals, gap):
             if interval[1]-interval[0]<= gap:
                 data[interval[0]:interval[1]] = 0 
 
+#funzione che calcola lo stato acceso/spento del segnale di regressione. Usa treshold per filtrare inizialmente come "acceso" tutto quello >=treshold e sprento altrimenti, 
+#trova gli intervalli che hanno durata minore di min_on e li azzera,
+#ritorna lo stato cosi calcolato
 def compute_status(data, treshold, min_on):  
     # sourcery skip: inline-immediately-returned-variable
     status = (data >= treshold) * 1
@@ -45,10 +49,8 @@ def compute_status(data, treshold, min_on):
         zeros_interval(data, interval, min_on)
     return status
 
-#da guardare
-
-
-
+#padda a windowsize le finestre che risultano di dimensioni inferiori
+#fondamentale per passare al modello finestre di dimensioni tutte uguali 
 def padding_seqs(in_array, window_size):
     if len(in_array) == window_size:
         return in_array
@@ -61,6 +63,7 @@ def padding_seqs(in_array, window_size):
     out_array[:length] = in_array
     return out_array
 
+#standardizzazione e de stantardizzazione dei dati in ingresso
 def standardize_data(data, mu=0.0, sigma=1.0):
     data = data-mu
     data /= sigma
@@ -70,7 +73,7 @@ def de_standardize_data(data, mu=0.0, sigma=1.0):
     data = data+mu
     return data
 
-
+#calcola le metriche descritte usando lo status predetto e lo status effettivo del Ground truth. 
 def acc_precision_recall_f1_score(pred, status):
     assert pred.shape == status.shape
 
@@ -94,6 +97,7 @@ def acc_precision_recall_f1_score(pred, status):
 
     return np.array(accs), np.array(precisions), np.array(recalls), np.array(f1_scores)
 
+#calcola errrore relativo e errore assoluto usando il disaggregato predetto e il disaggregato originale
 def relative_absolute_error(pred, label):
     assert pred.shape == label.shape
 
@@ -112,13 +116,14 @@ def relative_absolute_error(pred, label):
 
     return np.array(relative), np.array(absolute)
 
+#calcola la potenza complessiva del disaggregato reale e la percentuale relativa del disaggregato predetto
 def Wh_estimate(pred, label, f_sampling):
     assert pred.shape == label.shape
     label_p = np.sum(label, axis=0)/(3600*f_sampling)
     pred_p = np.sum(pred, axis=0)/(3600*f_sampling)
     pred_percentage = pred_p/label_p
     return pred_percentage, label_p
-    
+#funziona che data la pedizione e alcuni parametri passati come argomento per calcolare le metrice e salvare le immagini e in una cartella        
 def log_data_and_images(path,aggregate,pred,labels,f_sampling,appliance,args,show=False):
    
     path = f"{path}_{appliance}_train_{args.trained_on}_test_{args.tested_on}_{args.house_id}"
@@ -203,17 +208,24 @@ if __name__ =="__main__":
     parser.add_argument('--house_id', type=int)
     args = parser.parse_args()
     
-    if args.tested_on == 'refit':
+    if args.tested_on == 'refit': #cambio frequenza di campionamento in base al dataset usato
         args.f_sampling = 1/7
 
-    args.mul = int(((args.window_size/args.stride)-1)/2)
-
+    #indice che serve per indicizzare la finestra, per selezionare ad ogni iterazione solo la parte centrale del segnale
+    #con win_size 600 e stride 120 600/120 = 5. |___0__|___1__|___2__|___3__|___4__|
+    #                                           <---------window_size-------------->
+    #                                           <stide>
+    #per ogni predizione seleziono solo la finestra di dimensione STRIDE centrale
+    #mul indica le sotto-finestre da skippare dall'inizio e dalla fine in questo modo:[+args.mul*args.stride:-args.mul*args.stride]
+    #seleziono tutte le finestre da 0 a mul+1 solo sulla prima iterazione
+    args.mul = int(((args.window_size/args.stride)-1)/2 )
+    
+    #setup argomenti necessari per set_template per estrarre i parametri corretti per l'elaborazione
     args.appliance_names = [0]
-
     args.dataset_code = args.trained_on
-
     set_template(args)
 
+    #seleziona parametri corretti dai rispettivi vettori usando il nome dell'elettrodomestico
     args.cutoff = args.cutoff[args.appliance]
     args.min_on = args.min_on[args.appliance]
     args.treshold = args.threshold[args.appliance]
@@ -221,13 +233,14 @@ if __name__ =="__main__":
     args.min_off = 0
     args.house_indicies =0
 
-
+    #setup modello e caricamento dei pesi corretti
     model = BERT4NILM(args)
     model.to(args.device)
     model.float()
-    model.load_state_dict(torch.load(args.model_path))
+    model.load_state_dict(torch.load(args.model_path, map_location=args.device))
     print(model)
     
+    #caricamento di aggregato e disaggregato
     x = np.load(os.path.join(args.main_path, f'house{args.house_id}.npy'))  
     y = np.load(os.path.join(args.appliance_path, f'house{args.house_id}.npy'))
 
@@ -242,14 +255,14 @@ if __name__ =="__main__":
     print(x.shape)
     for i in tqdm(np.arange(0, x.shape[0],args.stride)):
 
-        seqs = padding_seqs(x[i:i+args.window_size], args.window_size)
+        seqs = padding_seqs(x[i:i+args.window_size], args.window_size) #padda a dimensione win_size se l'intervallo e' minore di win_size
         seqs = standardize_data(seqs, mean, std)
-        seqs = np.reshape(seqs,(1,1,args.window_size))
+        seqs = np.reshape(seqs,(1,1,args.window_size)) #shape adeguata per runnare il modello
         seqs = torch.tensor(seqs).to(args.device)
         with torch.no_grad():
             logits = model(seqs.float(), unsqueeze= False)
             logits = logits.cpu().numpy().squeeze()
-            logits_energy = cutoff_energy(logits *args.cutoff, float(args.cutoff))
+            logits_energy = cutoff_energy(logits *args.cutoff, float(args.cutoff)) #moltiplico per fattore di riconversione da -1 a 1 a  valori reali, per poi filtrare
             logits_energy = logits_energy 
         if i==0:
             energy_res.append(logits_energy[:(args.mul+1)*args.stride])
@@ -257,7 +270,7 @@ if __name__ =="__main__":
         else:
             energy_res.append(logits_energy[+args.mul*args.stride:-args.mul*args.stride])
 
-        energy = np.concatenate(energy_res)
-        energy[energy<10] = 0
+    energy = np.concatenate(energy_res)
+    energy[energy<10] = 0
 
     log_data_and_images(f'./logs/', x,energy[:args.until], y[:args.until], args.f_sampling, args.appliance, args,show=True)

@@ -15,7 +15,7 @@ def train(args, export_root=None, resume=True):
         args.house_indicies = [2, 3, 4, 5, 6]
         dataset = REDD_LF_Dataset(args)
     elif args.dataset_code == 'uk_dale':
-        args.house_indicies = [1,2, 3, 4, 5]
+        args.house_indicies = [1, 3, 4, 5]
         dataset = UK_DALE_Dataset(args)
     elif args.dataset_code == 'refit':
         args.house_indicies = [1, 3, 4, 5]
@@ -52,6 +52,9 @@ def train(args, export_root=None, resume=True):
     elif args.dataset_code == 'uk_dale':
         args.house_indicies = [2]
         dataset = UK_DALE_Dataset(args, stats)
+    elif args.dataset_code == 'refit':
+        args.house_indicies = [16]
+        dataset = REFIT_Dataset(args)
 
     dataloader = NILMDataloader(args, dataset)
     _, test_loader = dataloader.get_dataloaders()
@@ -98,6 +101,7 @@ parser.add_argument('--device', type=str, default='cpu',
                     choices=['cpu', 'cuda'])
 parser.add_argument('--optimizer', type=str,
                     default='adam', choices=['sgd', 'adam', 'adamw'])
+
 parser.add_argument('--lr', type=float, default=1e-4)
 parser.add_argument('--weight_decay', type=float, default=0.)
 parser.add_argument('--momentum', type=float, default=None)

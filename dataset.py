@@ -8,13 +8,15 @@ from pathlib import Path
 from collections import defaultdict
 import torch.utils.data as data_utils
 
-
+#classe padre che viene ereditata da ogni classe figlia relativa ad ogni dataset, migliore implementazione piu' semplice in ELECTRIcity
 class AbstractDataset(metaclass=ABCMeta):
     def __init__(self, args, stats=None):
         self.house_indicies = args.house_indicies
         self.appliance_names = args.appliance_names
         self.normalize = args.normalize
         self.sampling = args.sampling
+
+        #seleziona solo i valori relativi all'elettrodomestico selezionato
         self.cutoff = [args.cutoff[i]
                        for i in ['aggregate'] + self.appliance_names]
 
@@ -63,6 +65,7 @@ class AbstractDataset(metaclass=ABCMeta):
     def get_mean_std(self):
         return self.x_mean, self.x_std
 
+#calcola lo stato di un disaggregato in base ai parametri selezionati nella init
     def compute_status(self, data):
         status = np.zeros(data.shape)
         if len(data.squeeze().shape) == 1:
@@ -157,6 +160,7 @@ class REDD_LF_Dataset(AbstractDataset):
             return True
         return False
 
+#data la struttura di ogni dataset, carica in memoria l'elenco di case scelte e il disaggregato dell'elettrodomestico selezionato
     def load_data(self):
         for appliance in self.appliance_names:
             assert appliance in ['dishwasher',
@@ -265,7 +269,7 @@ class UK_DALE_Dataset(AbstractDataset):
         if first_file.is_file():
             return True
         return False
-
+#data la struttura di ogni dataset, carica in memoria l'elenco di case scelte e il disaggregato dell'elettrodomestico selezionato
     def load_data(self):
         for appliance in self.appliance_names:
             assert appliance in ['dishwasher', 'fridge',
@@ -361,7 +365,7 @@ class REFIT_Dataset(AbstractDataset):
             return True
         return False
 
-
+#data la struttura di ogni dataset, carica in memoria l'elenco di case scelte e il disaggregato dell'elettrodomestico selezionato
     def load_data(self):
         for appliance in self.appliance_names:
             assert appliance in ['dishwasher', 'fridge',
