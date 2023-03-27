@@ -20,7 +20,7 @@ torch.backends.cudnn.best = True
 #os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 torch.set_default_tensor_type(torch.FloatTensor)
 
-
+#classe che si occupa del training del modello
 class Trainer(metaclass=ABCMeta):
     def __init__(self, args, model, train_loader, val_loader, stats, export_root):
         self.args = args
